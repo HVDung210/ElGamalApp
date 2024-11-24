@@ -123,7 +123,82 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    private List<String> encryptImage(Bitmap image) {
+        List<String> encryptedChunks = new ArrayList<>();
+        try {
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            image.compress(Bitmap.CompressFormat.PNG, 100, stream);
+            byte[] imageBytes = stream.toByteArray();
 
+            int chunkSize = (p.bitLength() / 8) - 1;
+//            int chunkSize = Math.min((p.bitLength() / 8) - 1, 128); // Kích thước khối nhỏ hơn.
+
+
+
+            for (int i = 0; i < imageBytes.length; i += chunkSize) {
+                int end = Math.min(imageBytes.length, i + chunkSize);
+                byte[] chunk = Arrays.copyOfRange(imageBytes, i, end);
+
+                BigInteger message = new BigInteger(1, chunk);
+
+                SecureRandom random = new SecureRandom();
+                BigInteger k = new BigInteger(p.bitLength() - 2, random);
+
+                BigInteger c1 = g.modPow(k, p);
+                BigInteger c2 = message.multiply(y.modPow(k, p)).mod(p);
+
+                String encryptedChunk = Base64.encodeToString(c1.toByteArray(), Base64.DEFAULT) + ":" +
+                        Base64.encodeToString(c2.toByteArray(), Base64.DEFAULT);
+                encryptedChunks.add(encryptedChunk);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Encryption failed! " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+        return encryptedChunks;
+    }
+
+
+    private Bitmap decryptImage(List<String> encryptedData) {
+        try {
+            ByteArrayOutputStream decryptedStream = new ByteArrayOutputStream();
+
+            for (String encryptedChunk : encryptedData) {
+                String[] parts = encryptedChunk.split(":");
+                if (parts.length != 2) throw new IllegalArgumentException("Invalid encrypted data format.");
+
+                BigInteger c1 = new BigInteger(Base64.decode(parts[0], Base64.DEFAULT));
+                BigInteger c2 = new BigInteger(Base64.decode(parts[1], Base64.DEFAULT));
+
+                BigInteger c1Inverse = c1.modPow(p.subtract(BigInteger.ONE).subtract(x), p);
+                BigInteger decryptedMessage = c2.multiply(c1Inverse).mod(p);
+
+                byte[] chunk = decryptedMessage.toByteArray();
+                if (chunk[0] == 0) chunk = Arrays.copyOfRange(chunk, 1, chunk.length);
+                decryptedStream.write(chunk);
+            }
+
+            byte[] decryptedImageBytes = decryptedStream.toByteArray();
+
+            return BitmapFactory.decodeByteArray(decryptedImageBytes, 0, decryptedImageBytes.length);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Decryption failed! " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            return null;
+        }
+    }
+
+
+    private Bitmap resizeBitmap(Bitmap original, int maxWidth, int maxHeight) {
+        int width = original.getWidth();
+        int height = original.getHeight();
+        float scale = Math.min((float) maxWidth / width, (float) maxHeight / height);
+
+        int newWidth = Math.round(width * scale);
+        int newHeight = Math.round(height * scale);
+
+        return Bitmap.createScaledBitmap(original, newWidth, newHeight, true);
+    }
 
 
 }
