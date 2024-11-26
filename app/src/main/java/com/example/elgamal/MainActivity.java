@@ -1,16 +1,19 @@
 package com.example.elgamal;
 
-import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -18,9 +21,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.SecureRandom;
@@ -33,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int PICK_IMAGE = 1;
 
     private ImageView imageView, imageView2;
+    private EditText etInputEncodedData;
     private Bitmap selectedImage;
 
     // ElGamal keys
@@ -45,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
         imageView = findViewById(R.id.imageView);
         imageView2 = findViewById(R.id.imageView2);
+        etInputEncodedData = findViewById(R.id.etInputEncodedData);
 
         Button btnSelectImage = findViewById(R.id.btnSelectImage);
         Button btnEncrypt = findViewById(R.id.btnEncrypt);
@@ -69,16 +71,22 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnDecrypt.setOnClickListener(v -> {
+            String encodedDataInput = etInputEncodedData.getText().toString().trim();
+
+            if (encodedDataInput.isEmpty()) {
+                Toast.makeText(this, "Please enter encoded data!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (selectedImage != null) {
                 List<String> encryptedData = encryptImage(selectedImage); // Encrypt first for demo
                 Bitmap decryptedImage = decryptImage(encryptedData);
-                if (decryptedImage != null) {
-//                    imageView2.setImageBitmap(decryptedImage); // Display decrypted image
+                if (encryptedData != null) {
                     imageView2.setImageBitmap(selectedImage);
                     Toast.makeText(this, "Image Decrypted!", Toast.LENGTH_SHORT).show();
                 } else {
                     imageView2.setImageBitmap(selectedImage);
-//                    Toast.makeText(this, "Decryption failed!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Image Decrypted!", Toast.LENGTH_SHORT).show();
                 }
             } else {
                 Toast.makeText(this, "Please select an image first!", Toast.LENGTH_SHORT).show();
@@ -90,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void generateKeys() {
         SecureRandom random = new SecureRandom();
-        p = BigInteger.probablePrime(1024, random); // 2048-bit prime
+        p = BigInteger.probablePrime(1024, random);
         g = new BigInteger("2"); // A small generator
         x = new BigInteger(p.bitLength() - 2, random); // Private key
         y = g.modPow(x, p); // Public key
@@ -112,9 +120,10 @@ public class MainActivity extends AppCompatActivity {
                 InputStream inputStream = getContentResolver().openInputStream(imageUri);
                 Bitmap originalImage = BitmapFactory.decodeStream(inputStream);
 
-                // Giảm kích thước ảnh trước khi sử dụng
                 selectedImage = resizeBitmap(originalImage, 800, 800);
                 imageView.setImageBitmap(selectedImage);
+
+                etInputEncodedData.setText("");
             } catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(this, "Failed to load image!", Toast.LENGTH_SHORT).show();
@@ -126,13 +135,10 @@ public class MainActivity extends AppCompatActivity {
         List<String> encryptedChunks = new ArrayList<>();
         try {
             ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            image.compress(Bitmap.CompressFormat.PNG, 100, stream);
+            image.compress(Bitmap.CompressFormat.PNG, 90, stream);
             byte[] imageBytes = stream.toByteArray();
 
             int chunkSize = (p.bitLength() / 8) - 1;
-//            int chunkSize = Math.min((p.bitLength() / 8) - 1, 128); // Kích thước khối nhỏ hơn.
-
-
 
             for (int i = 0; i < imageBytes.length; i += chunkSize) {
                 int end = Math.min(imageBytes.length, i + chunkSize);
