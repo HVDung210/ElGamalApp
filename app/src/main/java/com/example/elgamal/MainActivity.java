@@ -22,11 +22,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.spec.RSAPrivateKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -38,160 +42,6 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-//public class MainActivity extends AppCompatActivity {
-//
-//    private ImageView imageViewOriginal, imageViewDecrypted;
-//    private EditText etEncodedData;
-//    private Bitmap originalBitmap;
-//    private SecretKey aesKey;
-//    private KeyPair rsaKeyPair;
-//    private byte[] iv;
-//
-//    @Override
-//    protected void onCreate(Bundle savedInstanceState) {
-//        super.onCreate(savedInstanceState);
-//        setContentView(R.layout.activity_main);
-//
-//        imageViewOriginal = findViewById(R.id.imageViewOriginal);
-//        imageViewDecrypted = findViewById(R.id.imageViewDecrypted);
-//        etEncodedData = findViewById(R.id.etEncodedData);
-//
-//        Button btnSelectImage = findViewById(R.id.btnSelectImage);
-//        Button btnEncrypt = findViewById(R.id.btnEncrypt);
-//        Button btnDecrypt = findViewById(R.id.btnDecrypt);
-//
-//        try {
-//            // Tạo cặp khóa RSA và khóa AES
-//            rsaKeyPair = generateRSAKeyPair();
-//            aesKey = generateAESKey();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            Toast.makeText(this, "Lỗi khởi tạo khóa!", Toast.LENGTH_SHORT).show();
-//        }
-//
-//        btnSelectImage.setOnClickListener(v -> selectImage());
-//        btnEncrypt.setOnClickListener(v -> encryptImage());
-//        btnDecrypt.setOnClickListener(v -> decryptImage());
-//    }
-//
-//    private void selectImage() {
-//        Intent intent = new Intent(Intent.ACTION_PICK);
-//        intent.setType("image/*");
-//        startActivityForResult(intent, 100);
-//    }
-//
-//    @Override
-//    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-//        super.onActivityResult(requestCode, resultCode, data);
-//        if (requestCode == 100 && resultCode == Activity.RESULT_OK && data != null) {
-//            Uri imageUri = data.getData();
-//            try {
-//                originalBitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(imageUri));
-//                imageViewOriginal.setImageBitmap(originalBitmap);
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//                Toast.makeText(this, "Không thể chọn hình ảnh!", Toast.LENGTH_SHORT).show();
-//            }
-//        }
-//    }
-//
-//    private void encryptImage() {
-//        try {
-//            if (originalBitmap == null) {
-//                Toast.makeText(this, "Hãy chọn hình ảnh trước!", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//
-//            // Chuyển đổi hình ảnh thành byte array
-//            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//            originalBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-//            byte[] imageData = baos.toByteArray();
-//
-//            // Tạo IV ngẫu nhiên
-//            iv = new byte[16];
-//            new SecureRandom().nextBytes(iv);
-//            IvParameterSpec ivSpec = new IvParameterSpec(iv);
-//
-//            // Mã hóa dữ liệu hình ảnh bằng AES
-//            Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-//            aesCipher.init(Cipher.ENCRYPT_MODE, aesKey, ivSpec);
-//            byte[] encryptedImageData = aesCipher.doFinal(imageData);
-//
-//            // Mã hóa khóa AES bằng RSA
-//            Cipher rsaCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//            rsaCipher.init(Cipher.ENCRYPT_MODE, rsaKeyPair.getPublic());
-//            byte[] encryptedAESKey = rsaCipher.doFinal(aesKey.getEncoded());
-//
-//            // Kết hợp dữ liệu thành chuỗi Base64
-//            String encodedData = Base64.encodeToString(encryptedAESKey, Base64.NO_WRAP) + ":" +
-//                    Base64.encodeToString(iv, Base64.NO_WRAP) + ":" +
-//                    Base64.encodeToString(encryptedImageData, Base64.NO_WRAP);
-//
-//            etEncodedData.setText(encodedData);
-//            Toast.makeText(this, "Mã hóa thành công!", Toast.LENGTH_SHORT).show();
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            Toast.makeText(this, "Lỗi mã hóa hình ảnh!", Toast.LENGTH_SHORT).show();
-//        }
-//    }
-//
-//    private void decryptImage() {
-//        try {
-//            String encodedData = etEncodedData.getText().toString();
-//            if (encodedData.isEmpty()) {
-//                Toast.makeText(this, "Hãy nhập dữ liệu để giải mã!", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//
-//            // Phân tách dữ liệu từ chuỗi Base64
-//            String[] parts = encodedData.split(":");
-//            if (parts.length != 3) {
-//                Toast.makeText(this, "Dữ liệu không hợp lệ!", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//
-//            byte[] encryptedAESKey = Base64.decode(parts[0], Base64.NO_WRAP);
-//            byte[] iv = Base64.decode(parts[1], Base64.NO_WRAP);
-//            byte[] encryptedImageData = Base64.decode(parts[2], Base64.NO_WRAP);
-//
-//            // Giải mã khóa AES bằng RSA
-//            Cipher rsaCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//            rsaCipher.init(Cipher.DECRYPT_MODE, rsaKeyPair.getPrivate());
-//            byte[] decryptedAESKey = rsaCipher.doFinal(encryptedAESKey);
-//
-//            // Tạo lại khóa AES và giải mã dữ liệu hình ảnh
-//            SecretKey originalAESKey = new SecretKeySpec(decryptedAESKey, "AES");
-//            IvParameterSpec ivSpec = new IvParameterSpec(iv);
-//
-//            Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-//            aesCipher.init(Cipher.DECRYPT_MODE, originalAESKey, ivSpec);
-//            byte[] decryptedImageData = aesCipher.doFinal(encryptedImageData);
-//
-//            // Chuyển đổi byte array thành Bitmap
-//            Bitmap decryptedBitmap = BitmapFactory.decodeByteArray(decryptedImageData, 0, decryptedImageData.length);
-//            imageViewDecrypted.setImageBitmap(decryptedBitmap);
-//
-//            Toast.makeText(this, "Giải mã thành công!", Toast.LENGTH_SHORT).show();
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            Toast.makeText(this, "Lỗi giải mã hình ảnh!", Toast.LENGTH_SHORT).show();
-//        }
-//    }
-//
-//    private KeyPair generateRSAKeyPair() throws Exception {
-//        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-//        keyPairGenerator.initialize(2048);
-//        return keyPairGenerator.generateKeyPair();
-//    }
-//
-//    private SecretKey generateAESKey() throws Exception {
-//        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-//        keyGenerator.init(256);
-//        return keyGenerator.generateKey();
-//    }
-//}
 
 public class MainActivity extends AppCompatActivity {
 
@@ -216,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnDecrypt = findViewById(R.id.btnDecrypt);
 
         try {
-            rsaKeyPair = generateRSAKeyPair();
+            rsaKeyPair = generateRSAKeyPairWithMillerRabin();
             aesKey = generateAESKey();
         } catch (Exception e) {
             e.printStackTrace();
@@ -371,11 +221,71 @@ public class MainActivity extends AppCompatActivity {
         return file;
     }
 
-    private KeyPair generateRSAKeyPair() throws Exception {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        keyPairGenerator.initialize(2048);
-        return keyPairGenerator.generateKeyPair();
+    private KeyPair generateRSAKeyPairWithMillerRabin() throws Exception {
+        SecureRandom random = new SecureRandom();
+        BigInteger primeP = generateLargePrime(1024, random);
+        BigInteger primeQ = generateLargePrime(1024, random);
+
+        BigInteger modulus = primeP.multiply(primeQ);
+        BigInteger phi = primeP.subtract(BigInteger.ONE).multiply(primeQ.subtract(BigInteger.ONE));
+        BigInteger publicExponent = BigInteger.valueOf(65537); // Common public exponent
+        BigInteger privateExponent = publicExponent.modInverse(phi);
+
+        // Construct RSA key pair
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        RSAPublicKeySpec pubSpec = new RSAPublicKeySpec(modulus, publicExponent);
+        RSAPrivateKeySpec privSpec = new RSAPrivateKeySpec(modulus, privateExponent);
+
+        PublicKey publicKey = keyFactory.generatePublic(pubSpec);
+        PrivateKey privateKey = keyFactory.generatePrivate(privSpec);
+
+        return new KeyPair(publicKey, privateKey);
     }
+
+    private BigInteger generateLargePrime(int bitLength, SecureRandom random) {
+        BigInteger prime;
+        do {
+            prime = new BigInteger(bitLength, random);
+        } while (!isPrime(prime, 40, random));
+        return prime;
+    }
+
+
+    private boolean isPrime(BigInteger n, int iterations, SecureRandom random) {
+        if (n.compareTo(BigInteger.ONE) <= 0) return false;
+        if (n.equals(BigInteger.valueOf(2)) || n.equals(BigInteger.valueOf(3))) return true;
+        if (n.mod(BigInteger.valueOf(2)).equals(BigInteger.ZERO)) return false;
+
+        BigInteger d = n.subtract(BigInteger.ONE);
+        int r = 0;
+        while (d.mod(BigInteger.valueOf(2)).equals(BigInteger.ZERO)) {
+            d = d.divide(BigInteger.valueOf(2));
+            r++;
+        }
+
+        for (int i = 0; i < iterations; i++) {
+            if (!millerRabinTest(d, n, random)) return false;
+        }
+        return true;
+    }
+
+
+    private boolean millerRabinTest(BigInteger d, BigInteger n, SecureRandom random) {
+        BigInteger a = new BigInteger(n.bitLength() - 1, random).add(BigInteger.valueOf(2));
+        BigInteger x = a.modPow(d, n);
+
+        if (x.equals(BigInteger.ONE) || x.equals(n.subtract(BigInteger.ONE))) return true;
+
+        while (!d.equals(n.subtract(BigInteger.ONE))) {
+            x = x.modPow(BigInteger.valueOf(2), n);
+            d = d.multiply(BigInteger.valueOf(2));
+
+            if (x.equals(BigInteger.ONE)) return false;
+            if (x.equals(n.subtract(BigInteger.ONE))) return true;
+        }
+        return false;
+    }
+
 
     private SecretKey generateAESKey() throws Exception {
         KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
